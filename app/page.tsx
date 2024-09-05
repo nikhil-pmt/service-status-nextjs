@@ -1,101 +1,92 @@
-import Image from "next/image";
+"use client";
+
+import { Key, useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const HistoryBlocks = ({ history }: any) => {
+  return (
+    <div className="flex">
+      {history.map((status: string, index: Key | null | undefined) => (
+        <div
+          key={index}
+          className={`size-3.5 mx-px ${
+            status === "Up" ? "bg-green-500" : "bg-red-500"
+          }`}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [statuses, setStatuses] = useState([]);
+  const [history, setHistory] = useState<any>({});
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      const res = await fetch("/api/check");
+      const data = await res.json();
+      setStatuses(data);
+
+      // Update history
+      setHistory((prevHistory: any) => {
+        const newHistory = { ...prevHistory };
+        data.forEach(({ name, status }: any) => {
+          if (!newHistory[name]) {
+            newHistory[name] = [];
+          }
+          newHistory[name].unshift(status);
+          if (newHistory[name].length > 90) {
+            newHistory[name] = newHistory[name].slice(0, 90);
+          }
+        });
+        return newHistory;
+      });
+    };
+
+    fetchStatuses();
+    const interval = setInterval(fetchStatuses, 60000); // Refresh every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+      <h1 className="text-4xl font-bold mb-8">Monitoring Dashboard</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {statuses.map(({ name, status, url }, index) => (
+          <Card
+            key={index}
+            className="w-80"
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <CardHeader>
+              <CardTitle>{name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p
+                className={`text-xl font-semibold ${
+                  status === "Up" ? "text-green-500" : "text-red-500"
+                }`}
+              >
+                {status}
+              </p>
+              <a
+                href={url}
+                target="_blank"
+                className="text-blue-500 underline text-xs"
+              >
+                Visit {name}
+              </a>
+              <div className="mt-4">
+                <p className="text-sm mb-1">Last 90 minutes:</p>
+                <HistoryBlocks history={history[name] || []} />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="mt-6 text-gray-500 text-sm">
+        <p>Auto-updates every minute</p>
+      </div>
     </div>
   );
 }
