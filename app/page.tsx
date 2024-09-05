@@ -1,17 +1,36 @@
 "use client";
 
-import { Key, useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
-const HistoryBlocks = ({ history }: any) => {
+interface ServiceStatus {
+  name: string;
+  url: string;
+  status: "Up" | "Down";
+  error?: string;
+}
+
+interface StatusHistory {
+  [key: string]: {
+    up: boolean;
+    timestamp: string;
+  }[];
+}
+
+const HistoryBlocks: React.FC<{ history: StatusHistory[string] }> = ({
+  history,
+}) => {
   return (
-    <div className="flex">
-      {history.map((status: string, index: Key | null | undefined) => (
+    <div className="flex mt-2">
+      {history.map((status, index) => (
         <div
           key={index}
-          className={`size-3.5 mx-px ${
-            status === "Up" ? "bg-green-500" : "bg-red-500"
+          className={`w-4 h-4 mx-px ${
+            status.up ? "bg-green-500" : "bg-red-500"
           }`}
+          title={`${status.up ? "Up" : "Down"} at ${new Date(
+            status.timestamp
+          ).toLocaleString()}`}
         />
       ))}
     </div>
@@ -19,74 +38,69 @@ const HistoryBlocks = ({ history }: any) => {
 };
 
 export default function Home() {
-  const [statuses, setStatuses] = useState([]);
-  const [history, setHistory] = useState<any>({});
+  const [statuses, setStatuses] = useState<Record<string, boolean>>({});
+  const [history, setHistory] = useState<StatusHistory>({});
 
-  useEffect(() => {
-    const fetchStatuses = async () => {
+  const fetchStatuses = async () => {
+    try {
       const res = await fetch("/api/check");
-      const data = await res.json();
-      setStatuses(data);
+      const data: ServiceStatus[] = await res.json();
 
-      // Update history
-      setHistory((prevHistory: any) => {
-        const newHistory = { ...prevHistory };
-        data.forEach(({ name, status }: any) => {
+      const newStatuses: Record<string, boolean> = {};
+      data.forEach((service) => {
+        newStatuses[service.name] = service.status === "Up";
+      });
+
+      setStatuses(newStatuses);
+      setHistory((prevHistory) => {
+        const newHistory: StatusHistory = { ...prevHistory };
+        Object.entries(newStatuses).forEach(([name, status]) => {
           if (!newHistory[name]) {
             newHistory[name] = [];
           }
-          newHistory[name].unshift(status);
-          if (newHistory[name].length > 90) {
-            newHistory[name] = newHistory[name].slice(0, 90);
+          newHistory[name].unshift({
+            up: status,
+            timestamp: new Date().toISOString(),
+          });
+          if (newHistory[name].length > 10) {
+            newHistory[name] = newHistory[name].slice(0, 10);
           }
         });
         return newHistory;
       });
-    };
+    } catch (error) {
+      console.error("Error fetching statuses:", error);
+    }
+  };
 
+  useEffect(() => {
     fetchStatuses();
-    const interval = setInterval(fetchStatuses, 60000); // Refresh every minute
+    const interval = setInterval(fetchStatuses, 60000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-      <h1 className="text-4xl font-bold mb-8">Monitoring Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {statuses.map(({ name, status, url }, index) => (
-          <Card
-            key={index}
-            className="w-80"
-          >
-            <CardHeader>
-              <CardTitle>{name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p
-                className={`text-xl font-semibold ${
-                  status === "Up" ? "text-green-500" : "text-red-500"
-                }`}
-              >
-                {status}
-              </p>
-              <a
-                href={url}
-                target="_blank"
-                className="text-blue-500 underline text-xs"
-              >
-                Visit {name}
-              </a>
-              <div className="mt-4">
-                <p className="text-sm mb-1">Last 90 minutes:</p>
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
+        <h1 className="text-4xl font-bold mb-8">Service Status</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Object.entries(statuses).map(([name, status]) => (
+            <Card key={name}>
+              <CardHeader>
+                <CardTitle className="flex justify-between">
+                  <span>{name}</span>
+                  <span className={status ? "text-green-500" : "text-red-500"}>
+                    {status ? "Up" : "Down"}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
                 <HistoryBlocks history={history[name] || []} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
-      <div className="mt-6 text-gray-500 text-sm">
-        <p>Auto-updates every minute</p>
-      </div>
-    </div>
+    </main>
   );
 }
